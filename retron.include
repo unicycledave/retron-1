@@ -1,0 +1,28 @@
+# Retron-1 Assembler (rasm) opcode description file:
+#
+# V0.01-alpha - August 2015 - dave.davecox@gmail.com
+# V0.02-alpha - November 2015 - dave.davecox@gmail.com
+#
+# How this file is laid out:
+# one line per instruction
+# <mnemonic> <hex_equiv>,<num_args>,<arg1>,<arg2> <next synonym>
+
+# Control Flow instructions:
+NOP 00,0 
+JMP 02,0 01,1,abs
+JZ 04,0 03,1,abs
+JNZ 06,0 05,1,abs
+JE 08,0 07,1,abs
+JNE 0A,0 09,1,abs
+
+CMP 79,1,imm 7A,1,abs
+
+# ALU instructions
+INC 10,1,ACC 12,1,X 14,1,Y 18,1,MEM_U 16,1,MEM_L
+DEC 11,1,ACC 13,1,X 15,1,Y 19,1,MEM_U 17,1,MEM_L
+ADD 1A,1,imm 1B,1,abs 1C,2,ACC,X 1D,2,ACC,Y 
+
+# Register movement instructions
+LOA 87,1,abs 88,2,X,abs 89,2,Y,abs 91,2,MEM_U,abs 92,2,MEM_L,abs 8A,1,imm 8B,2,Y,imm 8C,2,X,imm 8D,2,MEM_U,imm 8E,2,MEM_L,imm
+
+# Synthetic instructions: (??)

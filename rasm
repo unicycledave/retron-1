@@ -1,0 +1,127 @@
+#!/usr/bin/python
+#
+# Code rewrite of basic assembler for Retron-1 TTL CPU.
+# - dave cox, november 2015
+#
+
+import argparse, sys
+
+# initialization:
+writeHead = 0	# this indicates where in the rom we are currently writing code
+opcodes = []	# list of opcodes read from the include file.
+
+# functions:
+def writeTo(hexData):
+	global writeHead
+	print hexData,
+	writeHead += 1
+	if writeHead % 8 == 0:	# logisim requires files have a newline every 8 bytes.
+		print "\n",
+
+parser = argparse.ArgumentParser(description='Generate bytecode for Retron-1 CPU.')
+parser.add_argument('input_file', help='source file')
+parser.add_argument('--output', metavar="<filename>", default='a.out', help='specify the output file name')
+parser.add_argument('--library', metavar="<library>", default='retron.include', help='optional library file containing machine opcodes')
+parser.add_argument('--logisim', action='store_true', default='--logisim', help='output file in logisim format')
+
+args=parser.parse_args()
+
+outfile = open('args.filename', 'w')
+
+# read our library file
+with open(args.library) as fp:
+	for line in fp:
+		# ignore comments and empty lines:
+		if not line.startswith('#'):
+			if not line in ['\n', '\r\n']:
+				opcodes.append(line.strip().split(' '))
+
+# start assembling:
+with open(args.input_file) as fp:
+	# this is a required part of the logisim format:
+	print "v2.0 raw\n",
+	
+	for line in fp:
+		line = line.strip()	
+
+		# first, ignore comments and newlines:
+		if ';' in line:
+			for char in range(0,len(line)):
+				if line[char] == ';':
+					line = line[:x]
+					break;
+		if line == "":
+			continue;
+
+		# now let's look for code location blocks before breaking down opcodes:
+		if line.startswith(':'):
+
+			location = line[1:]
+
+			if int(location, 16) < writeHead:
+				print "ERROR: code starting at \"" + location + "\" may overwrite existing data!"
+				sys.exit(1)
+			else:
+				# it's safe - let's pad with zeroes to hit the next code block:
+				while writeHead < int(location, 16):
+					writeTo('00')
+
+			continue;
+
+		# and finally, opcodes:
+		# first check to see that the opcode in our file has a definition:
+		valid = 0	
+		opcode = line.split(" ")[0]
+		inputToken = line.split(" ")[1:]
+		for x in range(len(opcodes)):
+			if opcodes[x][0] == opcode:
+				valid = 1
+				
+				# sort lines by amount of arguments to the opcode:
+				if len(inputToken) == 0:
+					# search for opcode of length 0 in definitions
+					for syns in opcodes[x][1:]:
+						if syns.split(',')[1] == "0":
+							writeTo(syns.split(',')[0])
+
+				elif len(inputToken) == 1:
+					# search for opcode of length 1 in definitions
+					for syns in opcodes[x][1:]:
+						if syns.split(',')[1] == "1":
+							# this fires if the argument to the opcode is the same as the synonym
+							if syns.split(',')[2] == inputToken[0]:
+								writeTo(syns.split(',')[0])
+							# this fires if we're using an imm
+							elif syns.split(',')[2] == "imm":
+								if len(inputToken[0].strip()) == 2 and int(inputToken[0], 16) < 0x100:
+									writeTo(syns.split(',')[0])
+									writeTo(inputToken[0].strip())
+							# this fires if we're using an abs
+							elif syns.split(',')[2] == "abs":
+								if len(inputToken[0].strip()) == 4 and int(inputToken[0], 16) < 0x10000:
+									writeTo(syns.split(',')[0])
+									writeTo(inputToken[0].strip()[0:2])
+									writeTo(inputToken[0].strip()[2:4])
+								
+				elif len(inputToken) == 2:
+					# search for opcode of length 2 in definitions
+					for syns in opcodes[x][1:]:
+						if syns.split(',')[1] == "2":
+							if syns.split(',')[2] == inputToken[0]:
+								if syns.split(',')[3] == "imm":
+									if len(inputToken[1].strip()) == 2 and int(inputToken[1], 16) < 0x100:
+										writeTo(syns.split(',')[0])
+										writeTo(inputToken[1].strip())
+								if syns.split(',')[3] == "abs":
+									if len(inputToken[1].strip()) == 4 and int(inputToken[1], 16) < 0x10000:
+										writeTo(syns.split(',')[0])
+										writeTo(inputToken[1].strip()[0:2])
+										writeTo(inputToken[1].strip()[2:4])
+								
+				else:
+					print "loooong"
+
+		# our opcode was not found.
+		if valid == 0:
+			print "ERROR: Could not find opcode \"" + line.split(" ")[0] + "\" in supplied library file."
+			sys.exit(1)
